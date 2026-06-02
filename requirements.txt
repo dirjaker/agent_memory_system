@@ -1,3 +1,9 @@
 rich>=13.0.0
 httpx>=0.25.0
 pydantic>=2.0.0
+
+# 可选依赖（按需安装）：
+# sentence-transformers>=2.0  # 语义嵌入（SentenceTransformerEmbedding）
+# openai>=1.0  # OpenAI 嵌入（OpenAIEmbedding）
+# scikit-learn>=1.0  # TF-IDF 嵌入（TFIDFEmbedding）
+# numpy>=1.21  # 向量计算优化
