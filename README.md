@@ -1,3 +1,20 @@
+<div align="center">
+
+# 🧠 Agent Memory System
+
+### AI Agent 记忆管理系统 v2.0
+
+[![版本](https://img.shields.io/badge/版本-2.0-blue?style=flat-square)]()
+[![存储](https://img.shields.io/badge/存储-4-green?style=flat-square)]()
+[![检索](https://img.shields.io/badge/检索-向量+FTS-orange?style=flat-square)]()
+[![更新](https://img.shields.io/badge/更新-2025.06-red?style=flat-square)]()
+
+*短期/长期/工作记忆 · 向量检索 · 记忆压缩 · 多存储后端*
+
+</div>
+
+---
+
 # 🧠 Agent Memory System
 
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
@@ -256,3 +273,4 @@ python examples/enhanced_demo.py
 ## 📄 License
 
 MIT License
+
