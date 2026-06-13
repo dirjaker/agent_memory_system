@@ -268,3 +268,61 @@ python examples/enhanced_demo.py
 
 MIT License
 
+
+---
+
+## Web 界面
+
+基于 FastAPI 的 REST API 与暗色主题仪表盘。
+
+### 启动
+
+```bash
+python src/web/app.py
+# 访问 http://localhost:8081
+```
+
+### API 接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/perceive` | POST | 感知输入 (感觉 + 短期记忆) |
+| `/api/remember` | POST | 主动记忆 (工作记忆) |
+| `/api/recall` | POST | 回忆检索 |
+| `/api/search` | POST | 混合检索 (BM25 + 语义) |
+| `/api/episodic` | POST | 添加情景记忆 |
+| `/api/semantic` | POST | 添加语义记忆 |
+| `/api/consolidate` | POST | 记忆整合 |
+| `/api/compress` | POST | 压缩旧记忆 |
+| `/api/context` | GET | 获取 LLM 上下文 |
+| `/api/stats` | GET | 记忆统计 |
+| `/api/save` | POST | 保存到 SQLite |
+| `/api/load` | POST | 从 SQLite 加载 |
+
+### 仪表盘
+
+暗色主题仪表盘，支持:
+- 记忆层统计面板 (感觉/短期/工作/长期/情景/语义)
+- 感知输入与主动记忆
+- 回忆检索与混合检索
+- 情景记忆与语义知识管理
+- 记忆整合与压缩操作
+- LLM 上下文生成
+
+---
+
+## macOS 应用
+
+### tkinter 桌面版
+
+```bash
+python src/macos/app.py
+```
+
+### py2app 打包
+
+```bash
+# 在 macOS 上执行
+python packaging/py2app_setup.py py2app
+# 产物位于 dist/Agent Memory System.app
+```

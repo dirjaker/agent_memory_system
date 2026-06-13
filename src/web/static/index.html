@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Memory System - 记忆管理仪表盘</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:20px;color:#58a6ff;font-weight:600}
+header .status{display:flex;align-items:center;gap:8px;font-size:13px;color:#8b949e}
+header .dot{width:8px;height:8px;border-radius:50%;background:#3fb950}
+.container{max-width:1200px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px}
+.card h2{font-size:16px;color:#58a6ff;margin-bottom:16px;font-weight:600}
+.card.full{grid-column:1/-1}
+label{display:block;font-size:13px;color:#8b949e;margin-bottom:6px}
+textarea,input[type=text],input[type=number]{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px 12px;color:#c9d1d9;font-size:14px;resize:vertical;font-family:inherit}
+textarea:focus,input:focus{outline:none;border-color:#58a6ff}
+textarea{min-height:70px}
+button{background:#238636;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:14px;cursor:pointer;font-weight:500;margin-top:10px}
+button:hover{background:#2ea043}
+button.secondary{background:#21262d;border:1px solid #30363d;color:#c9d1d9}
+button.secondary:hover{background:#30363d}
+.result{margin-top:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-size:13px;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;display:none;line-height:1.6}
+.result.show{display:block}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.stat-box{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;text-align:center}
+.stat-box .num{font-size:28px;font-weight:700;color:#58a6ff}
+.stat-box .lbl{font-size:12px;color:#8b949e;margin-top:4px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row input{flex:1}
+.row .short{width:80px;flex:none}
+.memory-list{max-height:250px;overflow-y:auto;margin-top:10px}
+.memory-item{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;margin-bottom:8px;font-size:13px}
+.memory-item .meta{color:#8b949e;font-size:11px;margin-top:4px}
+.footer{text-align:center;padding:24px;font-size:12px;color:#484f58}
+@media(max-width:768px){.container{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+    <h1>Agent Memory System - 记忆管理仪表盘</h1>
+    <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">检查中...</span></div>
+</header>
+
+<div class="container">
+    <!-- 记忆统计 -->
+    <div class="card full">
+        <h2>记忆层统计</h2>
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-box"><div class="num">--</div><div class="lbl">加载中</div></div>
+        </div>
+        <button class="secondary" onclick="loadStats()" style="margin-top:12px">刷新统计</button>
+    </div>
+
+    <!-- 感知输入 -->
+    <div class="card">
+        <h2>感知输入</h2>
+        <label>输入文本 (自动存入感觉记忆 + 短期记忆)</label>
+        <textarea id="perceiveText" placeholder="输入要感知的文本..."></textarea>
+        <button onclick="doPerceive()">感知</button>
+        <div class="result" id="perceiveResult"></div>
+    </div>
+
+    <!-- 主动记忆 -->
+    <div class="card">
+        <h2>主动记忆</h2>
+        <label>记忆内容</label>
+        <textarea id="rememberText" placeholder="输入要记忆的内容..."></textarea>
+        <div class="row">
+            <label style="margin:0;white-space:nowrap">重要性:</label>
+            <input type="number" id="rememberImportance" value="0.7" min="0" max="1" step="0.1" class="short">
+            <label style="margin:0;white-space:nowrap">标签:</label>
+            <input type="text" id="rememberTags" placeholder="逗号分隔">
+        </div>
+        <button onclick="doRemember()">记忆</button>
+        <div class="result" id="rememberResult"></div>
+    </div>
+
+    <!-- 检索回忆 -->
+    <div class="card">
+        <h2>检索回忆</h2>
+        <label>查询关键词</label>
+        <input type="text" id="recallQuery" placeholder="输入搜索关键词...">
+        <div class="row" style="margin-top:8px">
+            <label style="margin:0;white-space:nowrap">数量:</label>
+            <input type="number" id="recallLimit" value="5" min="1" max="50" class="short">
+        </div>
+        <button onclick="doRecall()">检索</button>
+        <button class="secondary" onclick="doSearch()" style="margin-left:8px">混合检索</button>
+        <div class="result" id="recallResult"></div>
+        <div class="memory-list" id="recallList"></div>
+    </div>
+
+    <!-- 情景记忆 -->
+    <div class="card">
+        <h2>情景/语义记忆</h2>
+        <label>会话 ID</label>
+        <input type="text" id="epiSession" placeholder="conv_001">
+        <div class="row" style="margin-top:8px">
+            <input type="text" id="epiRole" placeholder="角色 (user/assistant)">
+            <input type="text" id="epiContent" placeholder="对话内容">
+        </div>
+        <button onclick="doEpisodic()">添加情景记忆</button>
+        <hr style="border-color:#30363d;margin:16px 0">
+        <label>事实描述</label>
+        <input type="text" id="semFact" placeholder="Python 是一种编程语言">
+        <div class="row" style="margin-top:8px">
+            <input type="text" id="semEntities" placeholder="实体 (逗号分隔)">
+        </div>
+        <button onclick="doSemantic()">添加语义记忆</button>
+        <div class="result" id="epiResult"></div>
+    </div>
+
+    <!-- 记忆整合 -->
+    <div class="card full">
+        <h2>记忆管理</h2>
+        <button onclick="doConsolidate()">执行整合 (短期 -> 长期)</button>
+        <button onclick="doCompress()" style="margin-left:8px">压缩旧记忆</button>
+        <button class="secondary" onclick="getContext()" style="margin-left:8px">获取 LLM 上下文</button>
+        <div class="result" id="manageResult"></div>
+    </div>
+</div>
+
+<div class="footer">Agent Memory System v2.0 - AI Agent 记忆管理系统</div>
+
+<script>
+const API = '';
+
+async function api(method, path, body) {
+    const opts = {method, headers:{'Content-Type':'application/json'}};
+    if(body) opts.body = JSON.stringify(body);
+    const r = await fetch(API + path, opts);
+    return r.json();
+}
+
+function show(id, data) {
+    const el = document.getElementById(id);
+    el.classList.add('show');
+    el.textContent = JSON.stringify(data, null, 2);
+}
+
+async function checkHealth() {
+    try {
+        await api('GET', '/api/health');
+        document.getElementById('statusDot').style.background = '#3fb950';
+        document.getElementById('statusText').textContent = '服务运行中';
+    } catch(e) {
+        document.getElementById('statusDot').style.background = '#da3633';
+        document.getElementById('statusText').textContent = '服务不可用';
+    }
+}
+
+async function loadStats() {
+    const d = await api('GET', '/api/stats');
+    const el = document.getElementById('statsGrid');
+    if(d && typeof d === 'object') {
+        let html = '';
+        const flat = flatten(d);
+        for(const [k, v] of Object.entries(flat)) {
+            if(typeof v !== 'object') {
+                html += `<div class="stat-box"><div class="num">${v}</div><div class="lbl">${k}</div></div>`;
+            }
+        }
+        if(html) el.innerHTML = html;
+    }
+}
+
+function flatten(obj, prefix='') {
+    let res = {};
+    for(const [k,v] of Object.entries(obj)) {
+        const key = prefix ? prefix+'.'+k : k;
+        if(v && typeof v === 'object' && !Array.isArray(v)) Object.assign(res, flatten(v, key));
+        else res[key] = v;
+    }
+    return res;
+}
+
+async function doPerceive() {
+    const text = document.getElementById('perceiveText').value;
+    if(!text.trim()) return;
+    const r = await api('POST', '/api/perceive', {text});
+    show('perceiveResult', r);
+}
+
+async function doRemember() {
+    const content = document.getElementById('rememberText').value;
+    const importance = parseFloat(document.getElementById('rememberImportance').value);
+    const tags = document.getElementById('rememberTags').value.split(',').map(s=>s.trim()).filter(Boolean);
+    if(!content.trim()) return;
+    const r = await api('POST', '/api/remember', {content, importance, tags});
+    show('rememberResult', r);
+}
+
+async function doRecall() {
+    const query = document.getElementById('recallQuery').value;
+    const limit = parseInt(document.getElementById('recallLimit').value);
+    if(!query.trim()) return;
+    const r = await api('POST', '/api/recall', {query, limit});
+    show('recallResult', r);
+}
+
+async function doSearch() {
+    const query = document.getElementById('recallQuery').value;
+    const limit = parseInt(document.getElementById('recallLimit').value);
+    if(!query.trim()) return;
+    const r = await api('POST', '/api/search', {query, limit});
+    show('recallResult', r);
+}
+
+async function doEpisodic() {
+    const session_id = document.getElementById('epiSession').value;
+    const role = document.getElementById('epiRole').value;
+    const content = document.getElementById('epiContent').value;
+    if(!session_id || !content) return;
+    const r = await api('POST', '/api/episodic', {session_id, role, content});
+    show('epiResult', r);
+}
+
+async function doSemantic() {
+    const fact = document.getElementById('semFact').value;
+    const entities = document.getElementById('semEntities').value.split(',').map(s=>s.trim()).filter(Boolean);
+    if(!fact.trim()) return;
+    const r = await api('POST', '/api/semantic', {fact, entities});
+    show('epiResult', r);
+}
+
+async function doConsolidate() {
+    const r = await api('POST', '/api/consolidate');
+    show('manageResult', r);
+}
+
+async function doCompress() {
+    const r = await api('POST', '/api/compress');
+    show('manageResult', r);
+}
+
+async function getContext() {
+    const r = await api('GET', '/api/context');
+    show('manageResult', r);
+}
+
+checkHealth();
+loadStats();
+</script>
+</body>
+</html>
