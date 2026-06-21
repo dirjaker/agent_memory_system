@@ -2,18 +2,22 @@
 
 ## 1. 项目概述
 
-Agent Memory System 是一个智能体记忆系统，为 AI Agent 提供多层级记忆能力，使其能够：
-- 记住对话历史
-- 存储学到的知识
-- 根据相关性检索记忆
-- 自动遗忘不重要的信息
+Agent Memory System 是一个仿认知科学的智能体记忆系统，为 AI Agent 提供六层记忆能力，使其能够：
+- 记住对话历史（情景记忆）
+- 存储学到的知识（语义记忆）
+- 根据相关性检索记忆（混合检索：BM25 + 语义向量）
+- 自动整合和压缩冗余记忆
+- 自动遗忘不重要的信息（艾宾浩斯遗忘曲线）
 
 ### 1.1 核心特性
 
-- **四级记忆架构**：感觉记忆 → 短期记忆 → 工作记忆 → 长期记忆
+- **六层记忆架构**：感觉记忆 → 短期记忆 → 工作记忆 → 长期记忆 → 情景记忆 → 语义记忆
 - **记忆流转**：自动将重要记忆从短期转入长期
-- **向量检索**：支持基于语义的相似度搜索
+- **混合检索**：BM25 关键词检索 + 语义向量检索，RRF 融合
+- **Embedding 抽象层**：支持 SentenceTransformer / OpenAI / TF-IDF / Hash
+- **记忆整合**：LLM 驱动的重要性评估、压缩、去重
 - **遗忘机制**：基于艾宾浩斯曲线的记忆衰减
+- **SQLite 持久化**：记忆数据持久化存储
 
 ### 1.2 应用场景
 
@@ -30,30 +34,40 @@ Agent Memory System 是一个智能体记忆系统，为 AI Agent 提供多层�
 输入
   ↓
 ┌─────────────────┐
-│ Sensory Buffer  │ 感觉记忆（< 1秒）
+│ Sensory Buffer  │ 感觉记忆（< 1秒，7±2 项）
 │ 环形缓冲区       │
 └────────┬────────┘
          ↓
 ┌─────────────────┐
-│ Short-term Store│ 短期记忆（几分钟）
+│ Short-term Store│ 短期记忆（几分钟，7±2 项）
 │ 当前对话上下文    │
 └────────┬────────┘
          ↓
 ┌─────────────────┐
-│ Working Memory  │ 工作记忆（当前任务）
+│ Working Memory  │ 工作记忆（当前任务，20 项）
 │ 活跃处理信息      │
 └────────┬────────┘
          ↓
 ┌─────────────────┐
-│ Long-term Store │ 长期记忆（持久）
+│ Long-term Store │ 长期记忆（持久，1000+ 项）
 │ 知识、经验        │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Episodic Memory │ 情景记忆（对话历史）
+│ 按会话组织       │
+└────────┬────────┘
+         ↓
+┌─────────────────┐
+│ Semantic Memory │ 语义记忆（事实知识图谱）
+│ 三元组存储       │
 └─────────────────┘
 ```
 
 ### 2.2 记忆生命周期
 
 ```
-感知(Perceive) → 编码(Encode) → 存储(Store) → 检索(Retrieve) → 遗忘(Forget)
+感知(Perceive) → 编码(Encode) → 存储(Store) → 检索(Retrieve) → 整合(Consolidate) → 遗忘(Forget)
 ```
 
 ## 3. 模块详解
@@ -71,61 +85,109 @@ class MemoryEntry:
     created_at: datetime   # 创建时间
     last_accessed: datetime # 最后访问
     tags: Set[str]         # 标签
+    embedding: List[float] # 向量嵌入
 ```
 
-#### 四级存储
+#### 六级存储
 
-**SensoryBuffer**
+**SensoryBuffer（感觉记忆）**
 - 容量：7±2 项
 - 保留时间：< 1秒
-- 实现：环形缓冲区
+- 实现：环形缓冲区（deque）
 
-**ShortTermStore**
+**ShortTermStore（短期记忆）**
 - 容量：7±2 项
 - 保留时间：几分钟
-- 特点：支持关键词搜索
+- 特点：支持关键词搜索，重要性淘汰
 
-**WorkingMemory**
+**WorkingMemory（工作记忆）**
 - 容量：20 项
 - 用途：当前任务相关
-- 特点：支持标签搜索
+- 特点：支持标签搜索，LRU 淘汰
 
-**LongTermStore**
+**LongTermStore（长期记忆）**
 - 容量：1000+ 项
 - 保留时间：永久
-- 特点：支持向量检索
+- 特点：三因子综合评分，自动遗忘
+
+**EpisodicMemory（情景记忆）**
+- 按会话（session_id）组织对话历史
+- 支持 DialogueTurn 数据结构
+- 关键词搜索
+
+**SemanticMemory（语义记忆）**
+- 事实知识图谱（三元组存储）
+- 支持实体搜索
 
 ### 3.2 Memory Manager (`memory_manager.py`)
 
-统一管理四级记忆的核心类：
+统一管理六层记忆的核心类：
 
 ```python
 class MemoryManager:
-    def perceive(content)      # 感知输入
-    def remember(content)      # 主动记忆
-    def recall(query)          # 回忆检索
-    def get_context()          # 获取上下文
-    def consolidate()          # 整合记忆
-    def forget(hours)          # 遗忘过期
+    def perceive(content)            # 感知输入
+    def remember(content, importance) # 主动记忆
+    def recall(query)                # 回忆检索
+    def search_memories(query)       # 混合检索
+    def add_episodic(session_id, role, content)  # 添加情景记忆
+    def add_semantic(fact, entities) # 添加语义记忆
+    def get_context()                # 获取上下文
+    def get_context_for_llm(query)   # 为 LLM 生成上下文
+    def auto_consolidate()           # 自动整合
+    def compress_memory(days)        # 压缩旧记忆
+    def save_to_db(path)             # 保存到 SQLite
+    def load_from_db(path)           # 从 SQLite 加载
+    def get_observability_report()   # 可观测性报告
 ```
 
-### 3.3 Vector Store (`vector_store.py`)
-
-向量存储实现：
+### 3.3 Memory Consolidator (`memory_consolidator.py`)
 
 ```python
-class SimpleVectorStore:
-    def add(id, content, embedding)  # 添加文档
-    def search(query_embedding)      # 向量搜索
-    def search_by_text(query)        # 文本搜索
+class MemoryConsolidator:
+    def score_importance(content)        # 评估重要性（LLM/规则）
+    def summarize(memories)              # 记忆压缩
+    def deduplicate(memories, threshold) # 去重
+    def consolidate_short_to_long(...)   # 整合短期到长期
+    def compress_old_memories(...)       # 压缩旧记忆
 ```
+
+### 3.4 Hybrid Retriever (`retriever.py`)
+
+```python
+class BM25Retriever:     # BM25 关键词检索
+class SemanticRetriever: # 语义向量检索
+class HybridRetriever:   # 混合检索（RRF 融合）
+class Reranker:          # 重排序器
+```
+
+### 3.5 Embedding (`embedding.py`)
+
+```python
+class BaseEmbedding(ABC):                    # 抽象基类
+class SentenceTransformerEmbedding:          # Sentence Transformers
+class OpenAIEmbedding:                       # OpenAI API
+class TFIDFEmbedding:                        # TF-IDF
+class HashEmbedding:                         # 哈希（零依赖）
+def create_embedding(model_type="auto"):     # 工厂函数
+```
+
+### 3.6 Persistence (`persistence.py`)
+
+```python
+class MemoryDatabase:    # SQLite 数据库管理器（WAL 模式）
+class MemoryRepository:  # 记忆 CRUD + JSON 导入导出
+```
+
+### 3.7 Web API (`web/app.py`)
+
+基于 FastAPI 的 REST API，13 个端点，支持远程记忆管理。
 
 ## 4. 使用指南
 
 ### 4.1 快速开始
 
 ```python
-from src.memory_manager import create_memory_manager
+from src import create_memory_manager
 
 # 创建记忆管理器
 manager = create_memory_manager()
@@ -134,66 +196,58 @@ manager = create_memory_manager()
 manager.perceive("用户问：什么是 AI？")
 
 # 主动记忆
-manager.remember("AI 是人工智能", importance=0.8)
+manager.remember("AI 是人工智能", importance=0.8, tags={"AI", "定义"})
 
-# 回忆
-results = manager.recall("AI")
+# 混合检索
+results = manager.search_memories("AI")
 
-# 获取上下文
-context = manager.get_context()
+# 获取 LLM 上下文
+context = manager.get_context_for_llm(query="AI 相关知识")
+
+# 持久化
+manager.save_to_db("memory.db")
 ```
 
-### 4.2 使用向量搜索
+### 4.2 启动 Web API
 
-```python
-from src.vector_store import create_vector_store
-
-store = create_vector_store()
-
-# 添加文档
-store.add("doc1", "Python 是编程语言")
-
-# 搜索
-results = store.search_by_text("Python")
+```bash
+python -m src.web.app
+# 访问 http://localhost:8081/docs 查看 API 文档
 ```
 
 ## 5. 设计决策
 
-### 5.1 为什么选择四级记忆？
+### 5.1 为什么选择六层记忆？
 
-认知科学研究表明，人类记忆分为多个阶段：
-- 感觉记忆：极短暂的感官输入
-- 短期记忆：当前意识处理的信息
-- 工作记忆：正在加工的信息
-- 长期记忆：持久存储的知识
+认知科学研究表明，人类记忆分为多个阶段。六层记忆架构完整覆盖了从感知输入到知识沉淀的全过程。
 
 ### 5.2 遗忘机制
 
-基于艾宾浩斯遗忘曲线：
+基于艾宾浩斯遗忘曲线：`score = importance × 2^(-t/T_half)`
 - 新记忆衰减快
 - 重要记忆衰减慢
 - 频繁访问的记忆更持久
+- 渐进衰减而非突然删除
 
-### 5.3 向量嵌入
+### 5.3 混合检索
 
-当前使用简化的哈希嵌入，实际项目应使用：
-- OpenAI text-embedding-ada-002
-- Sentence Transformers
-- Cohere Embed
+融合 BM25（精确匹配）和语义检索（语义理解），通过 RRF 算法融合结果。
+
+### 5.4 Embedding 降级策略
+
+```
+SentenceTransformer → OpenAI → TF-IDF → Hash（零依赖）
+```
 
 ## 6. 扩展点
 
 ### 6.1 集成真实向量数据库
 
-替换 `SimpleVectorStore` 为：
-- FAISS (Facebook AI Similarity Search)
-- ChromaDB
-- Pinecone
-- Weaviate
+替换 `SimpleVectorStore` 为：FAISS / ChromaDB / Pinecone / Weaviate
 
-### 6.2 添加持久化
+### 6.2 添加分布式记忆共享
 
-使用 SQLite 或 Redis 存储记忆。
+通过 Redis 或消息队列实现多 Agent 间记忆共享。
 
 ### 6.3 支持多模态记忆
 
@@ -201,14 +255,15 @@ results = store.search_by_text("Python")
 
 ## 7. 已知限制
 
-- 使用简化的向量嵌入
-- 无持久化存储
-- 搜索基于关键词而非语义
-- 单用户设计
+- `memory_store.py` 文件较大（~1300 行），建议按职责拆分
+- SQLite 并发写入需要额外锁保护
+- 默认使用哈希嵌入，生产环境需替换为真实嵌入模型
+- 缺少单元测试覆盖
 
 ## 8. 后续计划
 
-- [ ] 集成 Sentence Transformers
-- [ ] 添加 SQLite 持久化
-- [ ] 支持多用户记忆隔离
-- [ ] 实现记忆共享机制
+- [ ] 记忆可视化仪表盘
+- [ ] 多 Agent 记忆共享
+- [ ] 记忆导出/导入（JSON / CSV）
+- [ ] 单元测试覆盖
+- [ ] 拆分 `memory_store.py` 为多个模块

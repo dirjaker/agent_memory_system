@@ -2,11 +2,12 @@
 
 ## 🎯 项目定位
 
-Agent Memory System 是一个**智能体记忆学习项目**，目的是：
+Agent Memory System 是一个**智能体记忆系统**，目的是：
 1. 理解 AI Agent 的记忆机制
-2. 掌握多层级记忆系统设计
-3. 学习向量检索技术
-4. 为面试提供可讲解的项目经验
+2. 掌握六层记忆系统设计（认知科学驱动）
+3. 学习混合检索技术（BM25 + 语义向量）
+4. 掌握 Embedding 抽象层设计
+5. 为面试提供可讲解的项目经验
 
 ---
 
@@ -20,27 +21,37 @@ Agent Memory System 是一个**智能体记忆学习项目**，目的是：
 ### 阶段二：记忆管理（Week 2）
 - [x] 实现记忆管理器
 - [x] 实现记忆流转机制
-- [x] 实现遗忘机制
+- [x] 实现遗忘机制（艾宾浩斯曲线）
 
 ### 阶段三：向量检索（Week 3）
 - [x] 理解向量嵌入概念
 - [x] 实现简单的向量存储
 - [x] 实现相似度搜索
 
-### 阶段四：真实集成（Week 4+）
-- [ ] 集成 Sentence Transformers
-- [ ] 集成 FAISS/ChromaDB
-- [ ] 添加持久化存储
+### 阶段四：高级功能（Week 4+）
+- [x] Embedding 抽象层（多模型支持 + 自动降级）
+- [x] 混合检索引擎（BM25 + 语义 + RRF 融合）
+- [x] 记忆整合器（压缩/去重/重要性评估）
+- [x] 情景记忆 + 语义记忆
+- [x] SQLite 持久化
+- [x] Web API + 桌面 GUI
+
+### 阶段五：生产化（未来）
+- [ ] 集成 ChromaDB / FAISS
+- [ ] 多 Agent 记忆共享
+- [ ] 记忆可视化仪表盘
+- [ ] 单元测试覆盖
 
 ---
 
 ## 🎓 面试要点
 
 ### 核心概念
-1. **记忆层级**：为什么需要多级记忆？
+1. **六层记忆架构**：为什么需要多级记忆？每一层的设计依据？
 2. **记忆流转**：短期记忆如何变成长期记忆？
-3. **遗忘机制**：如何决定哪些记忆该保留？
-4. **向量检索**：如何实现语义搜索？
+3. **遗忘机制**：基于艾宾浩斯曲线的渐进衰减 vs 简单 TTL
+4. **混合检索**：BM25 + 语义向量的融合策略
+5. **Embedding 抽象**：策略模式 + 工厂模式 + 自动降级
 
 ### 常见问题
 
@@ -50,23 +61,26 @@ Agent Memory System 是一个**智能体记忆学习项目**，目的是：
 > - 学习用户偏好
 > - 积累知识和经验
 
-**Q: 四级记忆各有什么用途？**
-> - 感觉记忆：缓存输入，极短暂
-> - 短期记忆：当前对话上下文
-> - 工作记忆：当前任务相关信息
-> - 长期记忆：持久化的知识和经验
+**Q: 六层记忆各有什么用途？**
+> - 感觉记忆：缓存输入流，极短暂（环形缓冲区）
+> - 短期记忆：当前对话上下文（重要性淘汰）
+> - 工作记忆：当前任务相关信息（LRU 淘汰）
+> - 长期记忆：持久化的知识和经验（三因子评分 + 自动遗忘）
+> - 情景记忆：对话历史管理（按会话组织）
+> - 语义记忆：事实知识图谱（三元组存储）
 
 **Q: 如何实现记忆的遗忘？**
-> 基于艾宾浩斯遗忘曲线：
+> 基于艾宾浩斯遗忘曲线：`score = importance × 2^(-t/T_half)`
 > - 新记忆衰减快
 > - 重要记忆衰减慢
 > - 频繁访问的记忆更持久
-> - 定期清理低价值记忆
+> - 渐进衰减而非突然删除
 
-**Q: 向量搜索的原理是什么？**
-> 1. 将文本转为向量（Embedding）
-> 2. 计算向量间的相似度（余弦相似度）
-> 3. 返回最相似的结果
+**Q: 混合检索的原理是什么？**
+> 1. BM25 检索：TF-IDF 变体，擅长精确匹配
+> 2. 语义检索：Embedding 向量余弦相似度，擅长语义理解
+> 3. RRF 融合：`score = Σ 1/(k + rank_i)`，综合两路排名
+> 4. Reranker 重排序：二次排序提升最终质量
 
 ---
 
@@ -84,9 +98,10 @@ agent_memory_system
 
 ### 技术栈
 
-- **核心**：Python 3.8+, dataclasses
-- **可选**：sentence-transformers, faiss, chromadb
-- **持久化**：SQLite, Redis
+- **核心**：Python 3.8+, dataclasses, abc
+- **可选**：sentence-transformers, scikit-learn
+- **Web**：FastAPI, Uvicorn, Pydantic
+- **持久化**：SQLite（WAL 模式）
 
 ---
 
@@ -102,11 +117,6 @@ agent_memory_system
 - [MemGPT](https://github.com/cpacker/MemGPT)
 - [ChromaDB](https://github.com/chroma-core/chroma)
 
-### 博客/教程
-- 向量数据库入门
-- RAG 系统设计
-- Agent 记忆机制
-
 ---
 
 ## ⚡ 快速命令
@@ -114,8 +124,15 @@ agent_memory_system
 ```bash
 # 运行示例
 python examples/memory_demo.py
+python examples/enhanced_demo.py
 python examples/vector_search.py
 
-# 测试代码
-python -c "from src.memory_manager import create_memory_manager; print('OK')"
+# 启动 Web API
+python -m src.web.app
+
+# 启动 macOS GUI
+python -m src.macos.app
+
+# 验证安装
+python -c "from src import create_memory_manager; print('OK')"
 ```

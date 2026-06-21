@@ -12,20 +12,21 @@
   - `OpenAIEmbedding` — OpenAI text-embedding API
   - `TFIDFEmbedding` — TF-IDF 向量化
   - `HashEmbedding` — 哈希特征（零依赖）
-  - `create_embedding()` — 工厂函数
+  - `create_embedding()` — 工厂函数（支持自动降级）
 
 - **SQLite 持久化层** (`persistence.py`)
-  - `MemoryDatabase` — 数据库连接管理
-  - `MemoryRepository` — 记忆 CRUD 操作
+  - `MemoryDatabase` — 数据库连接管理（WAL 模式）
+  - `MemoryRepository` — 记忆 CRUD 操作，JSON 导入/导出
 
 - **记忆整合器** (`memory_consolidator.py`)
   - `MemoryConsolidator` — 统一整合入口
-  - LLM 驱动重要性评估 + 规则降级
+  - `RuleBasedImportanceScorer` — 基于规则的重要性评估
+  - `LLMImportanceScorer` — LLM 驱动重要性评估
   - 记忆压缩（旧记忆按日期分组摘要）
-  - 去重器（Deduplicator）
+  - 去重器（Deduplicator，编辑距离相似度）
 
 - **混合检索器** (`retriever.py`)
-  - `BM25Retriever` — 关键词检索（纯 Python 实现，无外部依赖）
+  - `BM25Retriever` — 关键词检索（Okapi BM25 算法，纯 Python 实现）
   - `SemanticRetriever` — 语义向量检索
   - `HybridRetriever` — 混合检索（BM25 + 语义，RRF 融合）
   - `Reranker` — 重排序器
@@ -38,6 +39,13 @@
 - **语义记忆** (`memory_store.py`)
   - `SemanticMemory` — 事实知识图谱（三元组存储）
   - `Fact` — 事实条目（subject-predicate-object）
+
+- **Web API** (`web/app.py`)
+  - FastAPI REST API，13 个端点
+  - 支持远程记忆管理
+
+- **macOS 桌面 GUI** (`macos/app.py`)
+  - tkinter 图形界面，四个标签页
 
 #### 优化改进
 
@@ -64,11 +72,11 @@
 
 #### 核心功能
 - **Memory Store 模块**
-  - MemoryEntry 记忆条目
-  - SensoryBuffer 感觉记忆
-  - ShortTermStore 短期记忆
-  - WorkingMemory 工作记忆
-  - LongTermStore 长期记忆
+  - MemoryEntry 记忆条目（含艾宾浩斯衰减）
+  - SensoryBuffer 感觉记忆（环形缓冲区）
+  - ShortTermStore 短期记忆（重要性淘汰）
+  - WorkingMemory 工作记忆（LRU 淘汰）
+  - LongTermStore 长期记忆（三因子评分）
 
 - **Memory Manager 模块**
   - perceive() 感知输入
@@ -80,14 +88,15 @@
 
 - **Vector Store 模块**
   - SimpleVectorStore 向量存储
-  - 余弦相似度计算
+  - 余弦相似度和欧氏距离计算
   - 文本向量搜索
 
 #### 示例代码
-- `examples/memory_demo.py` - 记忆系统演示
-- `examples/vector_search.py` - 向量搜索演示
+- `examples/memory_demo.py` — 记忆系统演示
+- `examples/vector_search.py` — 向量搜索演示
 
 #### 文档
-- `README.md` - 项目说明
-- `TECHNICAL_DOC.md` - 技术文档
-- `DIRECTION.md` - 方向指引
+- `README.md` — 项目说明
+- `docs/技术文档.md` — 技术文档
+- `docs/TECHNICAL_DOC.md` — 英文技术文档
+- `docs/DIRECTION.md` — 方向指引
