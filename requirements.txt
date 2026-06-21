@@ -1,12 +1,7 @@
-rich>=13.0.0
-httpx>=0.25.0
-pydantic>=2.0.0
-fastapi>=0.100.0
-uvicorn>=0.23.0
-py2app>=0.28
+# agent_memory_system - Python 依赖
+# 自动生成于 conda 环境
 
-# 可选依赖（按需安装）：
-# sentence-transformers>=2.0  # 语义嵌入（SentenceTransformerEmbedding）
-# openai>=1.0  # OpenAI 嵌入（OpenAIEmbedding）
-# scikit-learn>=1.0  # TF-IDF 嵌入（TFIDFEmbedding）
-# numpy>=1.21  # 向量计算优化
+httpx==0.28.1
+pydantic==2.13.4
+pydantic_core==2.46.4
+typing_extensions==4.15.0
